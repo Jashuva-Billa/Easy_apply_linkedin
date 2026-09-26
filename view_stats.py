@@ -2,10 +2,21 @@
 """Simple Application Stats Viewer"""
 
 import duckdb
+import os
+import sys
+
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 DB_PATH = 'data/bot_data.duckdb'
 
 def main():
+    if not os.path.exists(DB_PATH):
+        print(f"Database not found at {DB_PATH}. Run the bot (python main.py) first to record applications.")
+        return
     con = duckdb.connect(DB_PATH, read_only=True)
     
     print("=" * 80)

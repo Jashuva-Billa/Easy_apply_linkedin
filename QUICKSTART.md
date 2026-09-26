@@ -4,11 +4,10 @@
 
 ### Step 1: Install Python Dependencies
 ```bash
-cd "c:\Users\user_name\Desktop\easy_apply_playwright\project-bot-easy-apply-python-playwright"
 pip install -r requirements.txt
 ```
 
-### Step 2: Install Playwright Browser
+### Step 2: Install Playwright Chromium Browser
 ```bash
 playwright install chromium
 ```
@@ -19,34 +18,54 @@ playwright install chromium
    copy .env.example .env
    ```
 
-2. Edit `.env` and add your LinkedIn credentials:
+2. Edit `.env` and add your credentials:
    ```ini
+   CANDIDATE_001_PASSWORD=your_password_here
    LINKEDIN_USERNAME=your_email@example.com
    LINKEDIN_PASSWORD=your_password
    PHONE_NUMBER=1234567890
    ```
 
-### Step 4: Configure Job Search
-Edit `config.yaml`:
+### Step 4: Configure Job Search & Candidate Profile
+Copy `config/candidates.example.yaml` to `config/candidates.yaml`:
+```bash
+copy config\candidates.example.yaml config\candidates.yaml
+```
+Edit `config/candidates.yaml`:
 ```yaml
-positions:
-  - Software Engineer
-  - Python Developer
-
-locations:
-  - Remote
-  - New York
-
-execution:
-  max_applications_per_run: 5
-  cooldown_seconds: 5
-  dry_run: true  # IMPORTANT: Keep true for testing!
+candidates:
+  - id: candidate_001
+    name: "Your Name"
+    enabled: true
+    credentials:
+      email: "your_email@example.com"
+      phone: "1234567890"
+    uploads:
+      Resume: ./assets/candidates/candidate_001/resume.pdf
+    search:
+      positions:
+        - "Software Engineer"
+        - "Python Developer"
+      locations:
+        - "Remote"
+    preferences:
+      max_applications_per_run: 5
+      cooldown_seconds: 5
+      dry_run: true  # Keep true for testing!
 ```
 
 ### Step 5: Add Your Resume
-Place your resume in the `assets/` folder:
-- `assets/cv.pdf` (your resume)
-- `assets/cl.pdf` (your cover letter, optional)
+Place your resume in the configured assets path:
+- `assets/candidates/candidate_001/resume.pdf`
+
+---
+
+## Validate Setup
+
+Run the validation script to verify all local components are ready:
+```bash
+python validate.py
+```
 
 ---
 
@@ -63,60 +82,18 @@ python main.py
 2. Bot will log into LinkedIn
 3. Bot will search for jobs
 4. Bot will click "Easy Apply" buttons
-5. Bot will fill out forms
+5. Bot will fill out forms using profile data
 6. **Bot will NOT submit** (dry run mode)
-7. You'll see a summary at the end
+7. You'll see a local session summary at the end
 
 ---
 
-## Tips
+## Checking Results
 
-### Manual Intervention
-If the bot encounters a question it can't answer, it will:
-- Pause and wait for you
-- Display a message in the console
-- Resume automatically once you fill the field
-
-### Stopping the Bot
-Press `Ctrl+C` to stop the bot gracefully. It will:
-- Save all progress
-- Print a summary
-- Close the browser
-
-### Checking Results
-All applications are saved in `data/bot_data.duckdb`. You can query it:
-```python
-import duckdb
-con = duckdb.connect('data/bot_data.duckdb')
-print(con.execute('SELECT * FROM applications').fetchdf())
-```
-
----
-
-## Common Issues
-
-### "Browser not found"
+All applications are saved locally in `data/bot_data.duckdb` and `data/bot.log`.
 ```bash
-playwright install chromium
+python view_stats.py
+python check_submissions.py
 ```
-
-### "Login failed"
-- Check credentials in `.env`
-- If you have 2FA, you may need to verify manually on first run
-
-### "No jobs found"
-- Check your `positions` and `locations` in `config.yaml`
-- Try broader search terms
-
----
-
-## Next Steps
-
-1. ✅ Test in dry run mode
-2. ✅ Review the logs
-3. ✅ Check the database
-4. ✅ Adjust configuration
-5. ✅ Go live with small batches
-6. ✅ Monitor and iterate
 
 Happy job hunting! 🚀

@@ -5,7 +5,6 @@ candidates:
   - id: candidate_001
     name: "Full Name"
     enabled: true
-    wbl_candidate_id: 12345  # Add your WBL platform candidate ID here for activity logging
     credentials:
       email: "your_email@example.com"
       password: ""  # Leave empty to use .env

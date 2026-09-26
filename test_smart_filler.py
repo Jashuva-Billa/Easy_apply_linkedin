@@ -4,11 +4,23 @@ Run this to verify the human-in-loop system
 """
 
 import yaml
+import os
+import sys
 from bot.application.smart_form_filler import SmartFormFiller
 
+# Set stdout encoding
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 def load_candidates():
-    """Load candidates from YAML"""
-    with open('config/candidates.yaml', 'r') as f:
+    """Load candidates from YAML with fallback to example"""
+    candidates_file = 'config/candidates.yaml'
+    if not os.path.exists(candidates_file):
+        candidates_file = 'config/candidates.example.yaml'
+    with open(candidates_file, 'r', encoding='utf-8') as f:
         data = yaml.safe_load(f)
     return data['candidates']
 

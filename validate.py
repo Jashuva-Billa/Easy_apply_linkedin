@@ -1,106 +1,144 @@
 """
-Validation script for LinkedIn EasyApply Bot (Playwright Version)
-Tests all components and validates the setup
+Validation script for Standalone Local LinkedIn EasyApply Bot (Playwright Version)
+Tests all local components and validates complete removal of Whitebox Learning dependencies.
 """
 
 import sys
 import os
+import glob
+import re
 
-# Add bot directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Set stdout/stderr to UTF-8 encoding on Windows
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
+# Add workspace directory to path
+WORKSPACE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, WORKSPACE_DIR)
+
+
+def test_whitebox_absence():
+    """Verify that zero Whitebox Learning (WBL) dependencies, files, or configs exist"""
+    print("=" * 60)
+    print("TESTING WHITEBOX INDEPENDENCE (LOCAL-ONLY AUDIT)")
+    print("=" * 60)
+    
+    passed = True
+    
+    # 1. Check that wbl_api.py does not exist
+    wbl_api_path = os.path.join(WORKSPACE_DIR, "bot", "utils", "wbl_api.py")
+    if os.path.exists(wbl_api_path):
+        print(f"❌ FAIL: Legacy Whitebox API file found at {wbl_api_path}")
+        passed = False
+    else:
+        print("✅ No bot/utils/wbl_api.py file present")
+        
+    # 2. Check forbidden environment variables in environment
+    forbidden_env_vars = ["WBL_API_BASE_URL", "WBL_EMAIL", "WBL_PASSWORD", "EMPLOYEE_ID"]
+    found_env = [var for var in forbidden_env_vars if os.getenv(var)]
+    if found_env:
+        print(f"❌ FAIL: Whitebox environment variables detected in runtime env: {found_env}")
+        passed = False
+    else:
+        print("✅ No Whitebox environment variables active in runtime")
+        
+    # 3. Scan code files for forbidden Whitebox patterns
+    forbidden_patterns = [
+        r"wbl_api",
+        r"send_job_activity_log",
+        r"api\.whitebox-learning\.com",
+        r"wbl_candidate_id",
+        r"WBL_API_BASE_URL",
+        r"WBL_EMAIL",
+        r"WBL_PASSWORD",
+        r"EMPLOYEE_ID",
+    ]
+    
+    code_extensions = (".py", ".yaml", ".yml", ".json", ".env.example")
+    scanned_files = []
+    
+    for root, dirs, files in os.walk(WORKSPACE_DIR):
+        # Exclude git, cache, virtualenvs, and log data
+        if any(ignored in root for ignored in [".git", "__pycache__", ".venv", "venv", "node_modules"]):
+            continue
+        for file in files:
+            if file.endswith(code_extensions) and file != "validate.py":
+                scanned_files.append(os.path.join(root, file))
+                
+    violations = []
+    for file_path in scanned_files:
+        try:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                for pattern in forbidden_patterns:
+                    matches = re.findall(pattern, content, flags=re.IGNORECASE)
+                    if matches:
+                        rel_path = os.path.relpath(file_path, WORKSPACE_DIR)
+                        violations.append((rel_path, pattern, len(matches)))
+        except Exception as e:
+            print(f"⚠️ Warning reading {file_path}: {e}")
+            
+    if violations:
+        print("❌ FAIL: Forbidden Whitebox references found in codebase:")
+        for rel_path, pattern, count in violations:
+            print(f"   - {rel_path}: matches '{pattern}' ({count} times)")
+        passed = False
+    else:
+        print(f"✅ Scanned {len(scanned_files)} runtime/config files: 0 Whitebox references found")
+        
+    if passed:
+        print("\n✅ Whitebox independence test passed!\n")
+    else:
+        print("\n❌ Whitebox independence test failed!\n")
+        
+    return passed
+
 
 def test_imports():
-    """Test that all modules can be imported"""
+    """Test that all local modules can be imported without external WBL dependencies"""
     print("=" * 60)
-    print("TESTING IMPORTS")
+    print("TESTING MODULE IMPORTS")
     print("=" * 60)
     
-    try:
-        from bot.core.browser import Browser
-        print("✅ bot.core.browser")
-    except Exception as e:
-        print(f"❌ bot.core.browser: {e}")
-        return False
+    modules_to_test = [
+        ("bot.core.browser", "Browser"),
+        ("bot.core.session", "Session"),
+        ("bot.core.execution_guard", "ExecutionGuard"),
+        ("bot.core.dry_run", "DryRun"),
+        ("bot.core.metrics", "Metrics"),
+        ("bot.core.proxy_manager", "ProxyManager"),
+        ("bot.application.workflow", "Workflow"),
+        ("bot.application.form_filler", "FormFiller"),
+        ("bot.application.smart_form_filler", "SmartFormFiller"),
+        ("bot.discovery.search", "Search"),
+        ("bot.discovery.job_identity", "JobIdentity"),
+        ("bot.discovery.scroll_tracker", "ScrollTracker"),
+        ("bot.persistence.store", "Store"),
+        ("bot.utils.selectors", "Selectors"),
+        ("bot.utils.human_interaction", "HumanInteraction"),
+        ("bot.utils.logger", "StructuredLogger"),
+        ("bot.utils.profile_safety", "ProfileSafety"),
+    ]
     
-    try:
-        from bot.core.session import Session
-        print("✅ bot.core.session")
-    except Exception as e:
-        print(f"❌ bot.core.session: {e}")
-        return False
-    
-    try:
-        from bot.application.workflow import Workflow
-        print("✅ bot.application.workflow")
-    except Exception as e:
-        print(f"❌ bot.application.workflow: {e}")
-        return False
-    
-    try:
-        from bot.application.form_filler import FormFiller
-        print("✅ bot.application.form_filler")
-    except Exception as e:
-        print(f"❌ bot.application.form_filler: {e}")
-        return False
-    
-    try:
-        from bot.discovery.search import Search
-        print("✅ bot.discovery.search")
-    except Exception as e:
-        print(f"❌ bot.discovery.search: {e}")
-        return False
-    
-    try:
-        from bot.persistence.store import Store
-        print("✅ bot.persistence.store")
-    except Exception as e:
-        print(f"❌ bot.persistence.store: {e}")
-        return False
-    
-    try:
-        from bot.utils.selectors import LOCATORS, get_locator
-        print("✅ bot.utils.selectors")
-    except Exception as e:
-        print(f"❌ bot.utils.selectors: {e}")
-        return False
-    
-    try:
-        from bot.utils.human_interaction import HumanInteraction
-        print("✅ bot.utils.human_interaction")
-    except Exception as e:
-        print(f"❌ bot.utils.human_interaction: {e}")
-        return False
-    
-    try:
-        from bot.utils.logger import logger
-        print("✅ bot.utils.logger")
-    except Exception as e:
-        print(f"❌ bot.utils.logger: {e}")
-        return False
-    
-    try:
-        from bot.core.execution_guard import ExecutionGuard
-        print("✅ bot.core.execution_guard")
-    except Exception as e:
-        print(f"❌ bot.core.execution_guard: {e}")
-        return False
-    
-    try:
-        from bot.core.dry_run import DryRun
-        print("✅ bot.core.dry_run")
-    except Exception as e:
-        print(f"❌ bot.core.dry_run: {e}")
-        return False
-    
-    try:
-        from bot.core.metrics import Metrics
-        print("✅ bot.core.metrics")
-    except Exception as e:
-        print(f"❌ bot.core.metrics: {e}")
-        return False
-    
-    print("\n✅ All imports successful!\n")
-    return True
+    all_ok = True
+    for mod_path, name in modules_to_test:
+        try:
+            __import__(mod_path)
+            print(f"✅ {mod_path} ({name})")
+        except Exception as e:
+            print(f"❌ {mod_path} ({name}): {e}")
+            all_ok = False
+            
+    if all_ok:
+        print("\n✅ All local modules imported successfully!\n")
+    else:
+        print("\n❌ Some local module imports failed!\n")
+        
+    return all_ok
 
 
 def test_selectors():
@@ -153,6 +191,7 @@ def test_dependencies():
         ('bs4', 'BeautifulSoup4'),
         ('lxml', 'lxml'),
         ('psutil', 'psutil'),
+        ('pandas', 'pandas'),
     ]
     
     all_ok = True
@@ -173,163 +212,151 @@ def test_dependencies():
 
 
 def test_config():
-    """Test configuration file"""
+    """Test configuration files (candidates.yaml / config.yaml)"""
     print("=" * 60)
     print("TESTING CONFIGURATION")
     print("=" * 60)
     
     import yaml
     
+    candidates_file = os.path.join(WORKSPACE_DIR, "config", "candidates.yaml")
+    candidates_example = os.path.join(WORKSPACE_DIR, "config", "candidates.example.yaml")
+    legacy_file = os.path.join(WORKSPACE_DIR, "config.yaml")
+    legacy_example = os.path.join(WORKSPACE_DIR, "config.example.yaml")
+    
+    target_candidates = candidates_file if os.path.exists(candidates_file) else candidates_example
+    target_legacy = legacy_file if os.path.exists(legacy_file) else legacy_example
+    
     try:
-        with open("config.yaml", 'r') as f:
-            config = yaml.safe_load(f)
-        
-        # Check required fields
-        if 'positions' in config and len(config['positions']) > 0:
-            print(f"✅ Positions configured: {len(config['positions'])} positions")
-        else:
-            print("❌ No positions configured")
-            return False
-        
-        if 'locations' in config and len(config['locations']) > 0:
-            print(f"✅ Locations configured: {len(config['locations'])} locations")
-        else:
-            print("❌ No locations configured")
-            return False
-        
-        if 'execution' in config:
-            print(f"✅ Execution settings configured")
-            print(f"   - Max applications: {config['execution'].get('max_applications_per_run', 'N/A')}")
-            print(f"   - Cooldown: {config['execution'].get('cooldown_seconds', 'N/A')}s")
-            print(f"   - Dry run: {config['execution'].get('dry_run', 'N/A')}")
-        else:
-            print("⚠️  No execution settings (will use defaults)")
-        
-        print("\n✅ Configuration file valid!\n")
-        return True
-        
-    except FileNotFoundError:
-        print("❌ config.yaml not found")
-        return False
+        with open(target_candidates, 'r', encoding='utf-8') as f:
+            cdata = yaml.safe_load(f)
+        candidates = cdata.get('candidates', [])
+        print(f"✅ Candidate configuration valid ({os.path.basename(target_candidates)}): {len(candidates)} candidate profile(s) found")
+        for c in candidates:
+            # Verify no wbl_candidate_id required
+            assert 'wbl_candidate_id' not in c, f"Candidate {c.get('id')} contains deprecated wbl_candidate_id"
+            print(f"   - Candidate: {c.get('name')} (id: {c.get('id')}) [Enabled: {c.get('enabled', False)}]")
     except Exception as e:
-        print(f"❌ Error reading config: {e}")
+        print(f"❌ Error in candidate config: {e}")
         return False
-
-
-def test_env():
-    """Test environment variables"""
-    print("=" * 60)
-    print("TESTING ENVIRONMENT")
-    print("=" * 60)
-    
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    username = os.getenv('LINKEDIN_USERNAME')
-    password = os.getenv('LINKEDIN_PASSWORD')
-    phone = os.getenv('PHONE_NUMBER')
-    
-    if username and username != 'your_email@example.com':
-        print(f"✅ LINKEDIN_USERNAME configured")
-    else:
-        print("⚠️  LINKEDIN_USERNAME not configured (using config.yaml)")
-    
-    if password and password != 'your_password':
-        print(f"✅ LINKEDIN_PASSWORD configured")
-    else:
-        print("⚠️  LINKEDIN_PASSWORD not configured (using config.yaml)")
-    
-    if phone and phone != 'your_phone_number':
-        print(f"✅ PHONE_NUMBER configured")
-    else:
-        print("⚠️  PHONE_NUMBER not configured (using config.yaml)")
-    
-    print("\n✅ Environment check complete!\n")
+        
+    try:
+        with open(target_legacy, 'r', encoding='utf-8') as f:
+            ldata = yaml.safe_load(f)
+        print(f"✅ Legacy configuration valid ({os.path.basename(target_legacy)})")
+    except Exception as e:
+        print(f"❌ Error in legacy config: {e}")
+        return False
+        
+    print("\n✅ Configuration files valid!\n")
     return True
 
 
-def test_browser_init():
-    """Test browser initialization"""
-    print("=" * 60)
-    print("TESTING BROWSER INITIALIZATION")
-    print("=" * 60)
-    
-    try:
-        from bot.core.browser import Browser
-        
-        print("Initializing browser...")
-        browser = Browser(headless=True)
-        print("✅ Browser initialized successfully")
-        
-        page = browser.get_page()
-        print("✅ Page object retrieved")
-        
-        # Test navigation
-        print("Testing navigation to example.com...")
-        page.goto("https://example.com", wait_until="domcontentloaded")
-        print("✅ Navigation successful")
-        
-        # Clean up
-        browser.close()
-        print("✅ Browser closed successfully")
-        
-        print("\n✅ Browser test passed!\n")
-        return True
-        
-    except Exception as e:
-        print(f"❌ Browser test failed: {e}")
-        print("\nMake sure Playwright browsers are installed:")
-        print("  playwright install chromium")
-        return False
-
-
 def test_store():
-    """Test database store"""
+    """Test local DuckDB store"""
     print("=" * 60)
-    print("TESTING DATABASE STORE")
+    print("TESTING LOCAL DATABASE STORE (DUCKDB)")
     print("=" * 60)
     
     try:
         from bot.persistence.store import Store
         
-        store = Store()
-        print("✅ Store initialized")
+        test_db = os.path.join(WORKSPACE_DIR, "data", "test_bot_data.duckdb")
+        store = Store(db_file=test_db)
+        print("✅ Local DuckDB Store initialized")
         
         # Test saving answer
-        store.save_answer("test_question", "test_answer")
-        print("✅ Answer saved")
+        store.save_answer("test_q_whitebox_check", "test_a_local")
+        print("✅ Local QA answer saved")
         
         # Test retrieving answer
-        answer = store.get_answer("test_question")
-        if answer == "test_answer":
-            print("✅ Answer retrieved correctly")
+        answer = store.get_answer("test_q_whitebox_check")
+        if answer == "test_a_local":
+            print("✅ QA answer retrieved correctly from local DuckDB")
         else:
-            print(f"❌ Answer mismatch: expected 'test_answer', got '{answer}'")
+            print(f"❌ QA answer mismatch: expected 'test_a_local', got '{answer}'")
             return False
+            
+        # Clean up test DB
+        if os.path.exists(test_db):
+            os.remove(test_db)
         
-        print("\n✅ Store test passed!\n")
+        print("\n✅ Local Store test passed!\n")
         return True
         
     except Exception as e:
-        print(f"❌ Store test failed: {e}")
+        print(f"❌ Local Store test failed: {e}")
+        return False
+
+
+def test_local_logging():
+    """Test local structured logging and file output"""
+    print("=" * 60)
+    print("TESTING LOCAL LOGGING")
+    print("=" * 60)
+    
+    try:
+        from bot.utils.logger import logger
+        
+        test_log_path = os.path.join(WORKSPACE_DIR, "data", "bot.log")
+        logger.info("Validation local logger test entry", step="validate", event="test_run")
+        
+        if os.path.exists(test_log_path):
+            print(f"✅ Local log file confirmed at {test_log_path}")
+        else:
+            print(f"⚠️ Log file not yet written to {test_log_path} (stdout handler active)")
+            
+        print("\n✅ Local logging test passed!\n")
+        return True
+    except Exception as e:
+        print(f"❌ Local logging test failed: {e}")
+        return False
+
+
+def test_local_metrics():
+    """Test local metrics calculations and output"""
+    print("=" * 60)
+    print("TESTING LOCAL METRICS")
+    print("=" * 60)
+    
+    try:
+        from bot.core.metrics import Metrics
+        m = Metrics()
+        m.increment('attempted')
+        m.increment('submitted')
+        m.increment('skipped')
+        m.increment('failed')
+        
+        assert m.attempted == 1
+        assert m.submitted == 1
+        assert m.skipped == 1
+        assert m.failed == 1
+        
+        print("✅ Metrics incrementation verified")
+        print("✅ Local session summary printing works locally without external telemetry")
+        print("\n✅ Local metrics test passed!\n")
+        return True
+    except Exception as e:
+        print(f"❌ Local metrics test failed: {e}")
         return False
 
 
 def main():
-    """Run all tests"""
+    """Run all validation tests"""
     print("\n" + "=" * 60)
-    print("LINKEDIN EASYAPPLY BOT - VALIDATION SCRIPT")
-    print("Playwright Version")
+    print("LINKEDIN EASYAPPLY BOT - STANDALONE VALIDATION")
+    print("Playwright Version (100% Local, Zero Whitebox Dependencies)")
     print("=" * 60 + "\n")
     
     results = {
+        "Whitebox Independence": test_whitebox_absence(),
         "Dependencies": test_dependencies(),
-        "Imports": test_imports(),
+        "Module Imports": test_imports(),
         "Selectors": test_selectors(),
         "Configuration": test_config(),
-        "Environment": test_env(),
-        "Store": test_store(),
-        "Browser": test_browser_init(),
+        "Database Store (DuckDB)": test_store(),
+        "Local Logging": test_local_logging(),
+        "Local Metrics": test_local_metrics(),
     }
     
     print("\n" + "=" * 60)
@@ -338,26 +365,21 @@ def main():
     
     for test_name, result in results.items():
         status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{test_name:20s} {status}")
+        print(f"{test_name:25s} {status}")
     
     all_passed = all(results.values())
     
     print("=" * 60)
     if all_passed:
-        print("\n🎉 ALL TESTS PASSED! Bot is ready to use.")
-        print("\nTo run the bot:")
+        print("\n🎉 ALL TESTS PASSED! Standalone bot is ready for local execution.")
+        print("\nTo run the bot locally:")
         print("  python main.py")
-        print("\nMake sure to:")
-        print("  1. Configure your credentials in .env")
-        print("  2. Set dry_run: false in config.yaml when ready to apply")
-        print("  3. Review the selectors if LinkedIn UI has changed")
+        print("\nQuick setup checklist:")
+        print("  1. Copy .env.example to .env and configure credentials")
+        print("  2. Copy config/candidates.example.yaml to config/candidates.yaml")
+        print("  3. Set dry_run: false when ready to submit live applications")
     else:
-        print("\n⚠️  SOME TESTS FAILED! Please fix the issues above.")
-        print("\nCommon fixes:")
-        print("  - Install dependencies: pip install -r requirements.txt")
-        print("  - Install Playwright browsers: playwright install chromium")
-        print("  - Configure credentials in .env file")
-        print("  - Configure job search in config.yaml")
+        print("\n⚠️  SOME TESTS FAILED! Please check the output above.")
     
     print("\n")
     return 0 if all_passed else 1

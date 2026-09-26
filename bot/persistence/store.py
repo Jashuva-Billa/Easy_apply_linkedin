@@ -371,13 +371,16 @@ class Store:
             con.close()
 
 
-    def save_answer(self, question, answer):
+    def save_answer(self, question, answer, candidate_id='default'):
         con = self._get_connection()
         try:
-            con.execute("INSERT OR REPLACE INTO qa VALUES (?, ?)", [question, answer])
+            con.execute("""
+                INSERT OR REPLACE INTO qa (question, answer, candidate_id, times_used, last_used_at)
+                VALUES (?, ?, ?, 1, ?)
+            """, [question, answer, candidate_id, datetime.now()])
             log.info(f"Saved answer for: '{question}'")
         except Exception as e:
-             log.error(f"Failed to save QA: {e}")
+            log.error(f"Failed to save QA: {e}")
         finally:
             con.close()
 
