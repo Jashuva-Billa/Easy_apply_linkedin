@@ -37,7 +37,7 @@ class Workflow:
         self.human = HumanInteraction(self.page)
         self.metrics = metrics
 
-    def apply_to_job(self, jobID, phone_number):
+    def apply_to_job(self, jobID, phone_number, filter_result=None):
         if self.metrics:
             self.metrics.increment("attempted")
 
@@ -69,14 +69,28 @@ class Workflow:
                     job_title = parts[0].strip() if len(parts) > 0 else "Unknown"
                     company = parts[1].strip() if len(parts) > 1 else "Unknown"
                     
-                    # Record application start with comprehensive tracking
+                    # Record application start with comprehensive AI/ML evaluation tracking
                     candidate_id = self.candidate_profile.get('name', 'default') if self.candidate_profile else 'default'
+                    
+                    rel_score = filter_result.get("relevance_score") if filter_result else None
+                    loc_cat = filter_result.get("location_category") if filter_result else None
+                    loc_raw = filter_result.get("raw_location") if filter_result else None
+                    work_type = filter_result.get("workplace_type") if filter_result else None
+                    is_ind_elig = filter_result.get("location_eligible") if filter_result else None
+                    reasons_str = "; ".join(filter_result.get("reasons", [])) if filter_result else None
+
                     self.store.start_application(
                         job_id=jobID,
                         job_title=job_title,
                         company=company,
                         candidate_id=candidate_id,
-                        job_url=self.page.url
+                        job_url=self.page.url,
+                        location=loc_raw,
+                        work_type=work_type,
+                        relevance_score=rel_score,
+                        location_classification=loc_cat,
+                        match_reasons=reasons_str,
+                        is_india_eligible=is_ind_elig
                     )
                 except Exception as e:
                     logger.warning(f"Failed to parse job details for tracking: {e}", job_id=jobID)

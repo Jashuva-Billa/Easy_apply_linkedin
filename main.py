@@ -68,17 +68,18 @@ def save_profile_metadata(profile_path, email):
     """Save metadata to profile folder to track which email it belongs to"""
     import json
     import os
+    from datetime import datetime, timezone
     
     os.makedirs(profile_path, exist_ok=True)
     metadata_file = os.path.join(profile_path, 'profile_metadata.json')
     
     metadata = {
         'email': email,
-        'last_updated': str(logger.info.__self__.__class__.__name__ if hasattr(logger, 'info') else 'unknown')
+        'last_updated': datetime.now(timezone.utc).isoformat()
     }
     
     try:
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2)
     except Exception as e:
         logger.warning(f"Could not save profile metadata: {e}", step="save_metadata")
@@ -96,39 +97,36 @@ def verify_profile_metadata(profile_path, expected_email):
     
     # If metadata file doesn't exist, this is first run - create it
     if not os.path.exists(metadata_file):
-        logger.info(f"First run for this profile, creating metadata", step="verify_profile")
+        logger.info("First run for this profile, creating metadata", step="verify_profile")
         save_profile_metadata(profile_path, expected_email)
-        print(f"\n✅ New profile created for: {expected_email}")
+        print("\n✅ New profile created")
         return True
     
     # Load and verify metadata
     try:
-        with open(metadata_file, 'r') as f:
+        with open(metadata_file, 'r', encoding='utf-8') as f:
             metadata = json.load(f)
         
         saved_email = metadata.get('email', '').lower()
         expected_email_lower = expected_email.lower()
         
         if saved_email == expected_email_lower:
-            logger.info(f"✅ Profile metadata verified: {saved_email}", step="verify_profile")
-            print(f"\n✅ Using saved profile for: {saved_email}")
+            logger.info("Profile metadata verified", step="verify_profile")
+            print("\n✅ Using saved profile")
             return True
         else:
             # MISMATCH!
             print("\n" + "=" * 70)
             print("⛔ PROFILE MISMATCH DETECTED!")
             print("=" * 70)
-            print(f"This browser profile belongs to: {saved_email}")
-            print(f"But you selected candidate:      {expected_email_lower}")
-            print("=" * 70)
             print("The profile folder contains session data for a different account!")
             print(f"Profile path: {profile_path}")
             print("=" * 70)
             print("Options:")
             print("  1. Select the correct candidate matching this profile")
-            print(f"  2. Delete the profile folder to start fresh")
+            print("  2. Delete the profile folder to start fresh")
             print("=" * 70)
-            raise Exception(f"Profile mismatch: profile has {saved_email}, selected {expected_email_lower}")
+            raise Exception(f"Profile mismatch between stored profile and selected candidate")
     
     except json.JSONDecodeError:
         logger.warning("Corrupted metadata file, recreating", step="verify_profile")
@@ -202,6 +200,16 @@ if __name__ == '__main__':
             profile_path = f'./profiles/{candidate_id}'
             logger.info(f"Using auto-generated profile path: {profile_path}", step="init")
         
+        filter_config = {
+            'include_global_remote': search_config.get('include_global_remote', preferences.get('include_global_remote', True)),
+            'global_remote_requires_india_eligibility': search_config.get('global_remote_requires_india_eligibility', preferences.get('global_remote_requires_india_eligibility', True)),
+            'allow_india_hybrid': search_config.get('allow_india_hybrid', preferences.get('allow_india_hybrid', True)),
+            'allow_india_onsite': search_config.get('allow_india_onsite', preferences.get('allow_india_onsite', True)),
+            'min_relevance_score': search_config.get('min_relevance_score', preferences.get('min_relevance_score', 35.0)),
+            'min_experience': search_config.get('min_experience', 0),
+            'max_experience': search_config.get('max_experience', 10),
+        }
+
     else:
         # FALLBACK: Use old config.yaml
         logger.warning("Falling back to config.yaml (legacy mode)", step="init")
@@ -228,6 +236,7 @@ if __name__ == '__main__':
         is_dry_run = execution_config.get('dry_run', True)
         
         profile_path = parameters.get('profile_path', '')
+        filter_config = {}
         
         # Proxy Setup (Legacy)
         proxy_rotator = load_advanced_proxy_config(parameters)
@@ -287,7 +296,7 @@ if __name__ == '__main__':
         candidate_profile=selected_candidate  # Pass the profile!
     )
     
-    search = Search(page, workflow, blacklist, experience_level, phone_number)
+    search = Search(page, workflow, blacklist, experience_level, phone_number, filter_config=filter_config)
     
     locations = [l for l in locations if l is not None]
     positions = [p for p in positions if p is not None]

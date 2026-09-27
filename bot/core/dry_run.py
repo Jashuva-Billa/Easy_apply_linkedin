@@ -9,6 +9,9 @@ class DryRun:
     def is_enabled(self):
         return self.enabled
 
+    def is_dry_run(self):
+        return self.enabled
+
     def validate_submit(self):
         """
         Returns True if not in dry run mode (submit allowed).

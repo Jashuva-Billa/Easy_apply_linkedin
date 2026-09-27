@@ -70,10 +70,28 @@ class Store:
                     seniority_level VARCHAR,
                     employment_type VARCHAR,  -- Full-time, Part-time, Contract
                     
+                    -- AI/ML Filtering & Location Classification
+                    relevance_score REAL,
+                    location_classification VARCHAR,
+                    match_reasons VARCHAR,
+                    is_india_eligible BOOLEAN,
+                    
                     -- Extras
                     notes VARCHAR
                 )
             """)
+            
+            # Add columns if migrating an existing local table
+            for col, col_type in [
+                ("relevance_score", "REAL"),
+                ("location_classification", "VARCHAR"),
+                ("match_reasons", "VARCHAR"),
+                ("is_india_eligible", "BOOLEAN")
+            ]:
+                try:
+                    con.execute(f"ALTER TABLE applications ADD COLUMN IF NOT EXISTS {col} {col_type}")
+                except Exception:
+                    pass
             
             con.execute("""
                 CREATE TABLE IF NOT EXISTS candidates (
@@ -126,10 +144,12 @@ class Store:
                 )
             """)
             
+            con.execute("CREATE SEQUENCE IF NOT EXISTS submission_event_seq")
+            
             # Create submission events table for granular tracking
             con.execute("""
                 CREATE TABLE IF NOT EXISTS submission_events (
-                    event_id INTEGER PRIMARY KEY,
+                    event_id INTEGER PRIMARY KEY DEFAULT nextval('submission_event_seq'),
                     job_id VARCHAR,
                     event_type VARCHAR,  -- 'user_confirmed', 'submit_clicked', 'success', 'error'
                     event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -205,20 +225,37 @@ class Store:
             con.close()
 
     
-    def start_application(self, job_id, job_title, company, candidate_id='default', job_url=None, location=None):
-        """Record when an application starts"""
+    def start_application(
+        self,
+        job_id,
+        job_title,
+        company,
+        candidate_id='default',
+        job_url=None,
+        location=None,
+        work_type=None,
+        relevance_score=None,
+        location_classification=None,
+        match_reasons=None,
+        is_india_eligible=None
+    ):
+        """Record when an application starts with AI/ML evaluation metadata"""
         con = self._get_connection()
         try:
             timestamp = datetime.now()
             # Use INSERT OR REPLACE to handle retries/re-attempts
             con.execute("""
                 INSERT OR REPLACE INTO applications 
-                (job_id, job_title, company, location, started_at, status, attempted, candidate_id, job_url)
-                VALUES (?, ?, ?, ?, ?, 'started', TRUE, ?, ?)
-            """, [job_id, job_title, company, location, timestamp, candidate_id, job_url])
+                (job_id, job_title, company, location, work_type, started_at, status, attempted, candidate_id, job_url,
+                 relevance_score, location_classification, match_reasons, is_india_eligible)
+                VALUES (?, ?, ?, ?, ?, ?, 'started', TRUE, ?, ?, ?, ?, ?, ?)
+            """, [
+                job_id, job_title, company, location, work_type, timestamp, candidate_id, job_url,
+                relevance_score, location_classification, match_reasons, is_india_eligible
+            ])
             
             # Log event
-            self.log_submission_event(job_id, 'application_started', f'Started application for {job_title} at {company}', candidate_id)
+            self.log_submission_event(job_id, 'application_started', f'Started application for {job_title} at {company} (Score: {relevance_score}, Location: {location_classification})', candidate_id)
             
         except Exception as e:
             log.error(f"Failed to record application start: {e}")

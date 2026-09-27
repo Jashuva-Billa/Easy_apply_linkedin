@@ -4,6 +4,7 @@ import logging
 from bs4 import BeautifulSoup
 
 from bot.application.workflow import Workflow
+from bot.discovery.job_filter import JobFilter, LocationCategory
 from bot.utils.delays import sleep_random
 from bot.utils.selectors import LOCATORS, get_locator
 from bot.utils.logger import logger
@@ -16,7 +17,7 @@ from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
 
 class Search:
-    def __init__(self, page: Page, workflow: Workflow, blacklist=None, experience_level=None, phone_number=None):
+    def __init__(self, page: Page, workflow: Workflow, blacklist=None, experience_level=None, phone_number=None, filter_config=None):
         self.page = page
         self.workflow = workflow
         self.blacklist = blacklist or []
@@ -24,6 +25,7 @@ class Search:
         self.locator = LOCATORS
         self.MAX_SEARCH_TIME = 60 * 60
         self.phone_number = phone_number
+        self.job_filter = JobFilter(filter_config or {})
 
     def start_apply(self, positions, locations):
         combos = []
@@ -113,25 +115,84 @@ class Search:
                                     if link_text not in self.blacklist:
                                         logger.info(f"Found new job: {job_id}", step="job_search", event="found_job")
                                         
-                                        # CRITICAL: Click the job card to show preview panel
-                                        # Don't click the title link, click the card container
+                                        # Click the job card to load the preview panel
                                         try:
-                                            # Click on the job card div, NOT the title link
-                                            # This shows the preview panel with Easy Apply button
                                             link.click(timeout=5000, force=False)
                                             logger.debug(f"Clicked job card {job_id} to show preview", step="job_search")
                                             time.sleep(1.5)  # Wait for preview panel to load
                                         except Exception as click_err:
                                             logger.warning(f"Could not click job card: {click_err}", step="job_search")
+
+                                        # Extract preview details for AI/ML evaluation
+                                        preview_title = ""
+                                        preview_location = ""
+                                        preview_workplace = ""
+                                        preview_description = ""
                                         
-                                        self.workflow.apply_to_job(job_id, self.phone_number)
+                                        try:
+                                            title_el = self.page.locator(".job-details-jobs-unified-top-card__job-title, h1, .jobs-unified-top-card__job-title").first
+                                            if title_el.is_visible(timeout=1200):
+                                                preview_title = title_el.text_content().strip()
+                                        except Exception:
+                                            pass
+                                            
+                                        if not preview_title:
+                                            preview_title = link_text.split("\n")[0].strip() if link_text else ""
+                                            
+                                        try:
+                                            loc_el = self.page.locator(".job-details-jobs-unified-top-card__primary-description, .jobs-unified-top-card__bullet, .job-details-jobs-unified-top-card__bullet").first
+                                            if loc_el.is_visible(timeout=1000):
+                                                preview_location = loc_el.text_content().strip()
+                                        except Exception:
+                                            pass
+                                            
+                                        try:
+                                            workplace_el = self.page.locator(".job-details-jobs-unified-top-card__workplace-type, span.jobs-unified-top-card__workplace-type").first
+                                            if workplace_el.is_visible(timeout=1000):
+                                                preview_workplace = workplace_el.text_content().strip()
+                                        except Exception:
+                                            pass
+                                            
+                                        try:
+                                            desc_el = self.page.locator("#job-details, .jobs-description__content, .jobs-box__html-content").first
+                                            if desc_el.is_visible(timeout=1500):
+                                                preview_description = desc_el.text_content()[:3000].strip()
+                                        except Exception:
+                                            pass
+
+                                        # Run AI/ML & Location Eligibility Evaluation
+                                        evaluation = self.job_filter.evaluate_job(
+                                            title=preview_title or link_text,
+                                            location_text=preview_location or location,
+                                            description_text=preview_description,
+                                            workplace_type=preview_workplace
+                                        )
+
+                                        if not evaluation["is_eligible"]:
+                                            logger.info(
+                                                f"Filtered out job {job_id} ('{preview_title}'): {'; '.join(evaluation['reasons'][:2])} "
+                                                f"(Score: {evaluation['relevance_score']}/100, Loc: {evaluation['location_category']})",
+                                                step="job_filter",
+                                                event="job_skipped"
+                                            )
+                                            scroll_tracker.add_job(job_id)
+                                            continue
+
+                                        logger.info(
+                                            f"🎯 Matching AI/ML Job! '{preview_title}' | Score: {evaluation['relevance_score']}/100 | "
+                                            f"Category: {evaluation['location_category']}",
+                                            step="job_filter",
+                                            event="job_matched"
+                                        )
+
+                                        self.workflow.apply_to_job(job_id, self.phone_number, filter_result=evaluation)
                                         scroll_tracker.add_job(job_id)
                                     else:
                                         logger.info(f"Skipping blacklisted job: {job_id}", step="job_search", event="blacklisted")
-                                        scroll_tracker.add_job(job_id)  # Blacklisted but processed
+                                        scroll_tracker.add_job(job_id)
                                 else:
                                     logger.debug(f"Already applied to job: {job_id}", step="job_search", event="already_applied")
-                                    scroll_tracker.add_job(job_id)  # Already applied
+                                    scroll_tracker.add_job(job_id)
                             elif job_id:
                                 logger.debug(f"Job {job_id} already processed", step="job_search", event="duplicate")
                         except Exception as e:

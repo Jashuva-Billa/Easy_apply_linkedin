@@ -1,81 +1,136 @@
-# Example Candidate Configuration
-# Copy this to candidates.yaml and fill in your details
+# Multi-Candidate Configuration for AI/ML Engineering Opportunities
+# Copy this file to candidates.yaml and customize for your profile
 
 candidates:
   - id: candidate_001
-    name: "Full Name"
+    name: "AI/ML Engineer"
     enabled: true
     credentials:
       email: "your_email@example.com"
-      password: ""  # Leave empty to use .env
+      password: ""  # Leave empty to load from .env (CANDIDATE_001_PASSWORD or LINKEDIN_PASSWORD)
       phone: "1234567890"
-    profile_path: ""
+    profile_path: ""  # Leave empty for automatic './profiles/candidate_001'
     uploads:
       Resume: ./assets/candidates/candidate_001/resume.pdf
       Cover Letter: ./assets/candidates/candidate_001/cover_letter.pdf
+
     search:
+      # Target AI/ML Engineering Positions
       positions:
-      - "AI Engineer"
-      - "Generative AI Engineer"
-      - "RAG Engineer"
-      - "LLM Engineer"
-      - "Agentic AI Engineer"
-      - "MLOps Engineer"
-      - "AI Infrastructure Engineer"
-      - "Applied AI Scientist"
-      - "AI Solutions Architect"
+        - "AI Engineer"
+        - "AI/ML Engineer"
+        - "Machine Learning Engineer"
+        - "Generative AI Engineer"
+        - "GenAI Engineer"
+        - "Applied AI Engineer"
+        - "Applied Machine Learning Engineer"
+        - "AI Software Engineer"
+        - "ML Engineer"
+        - "Machine Learning Software Engineer"
+        - "LLM Engineer"
+        - "LLM Application Engineer"
+        - "Generative AI Developer"
+        - "AI Developer"
+        - "AI Engineer - Generative AI"
+        - "AI/ML Developer"
+        - "Artificial Intelligence Engineer"
+        - "NLP Engineer"
+        - "Machine Learning Platform Engineer"
+        - "MLOps Engineer"
+        - "ML Platform Engineer"
+        - "AI Platform Engineer"
+        - "AI Backend Engineer"
+        - "GenAI Platform Engineer"
+        - "AI Solutions Engineer"
+        - "Applied AI/ML Engineer"
+        - "Agentic AI Engineer"
+        - "AI Agent Engineer"
+        - "AI Research Engineer"
+        - "RAG Engineer"
+        - "AI Infrastructure Engineer"
+        - "Applied AI Scientist"
+        - "AI Solutions Architect"
+
+      # Target India & Remote Locations
       locations:
-      - "Remote"
-      salary: 100000
-      rate: 50
+        - "India"
+        - "Remote"
+        - "Bengaluru"
+        - "Bangalore"
+        - "Hyderabad"
+        - "Chennai"
+        - "Pune"
+        - "Mumbai"
+        - "Delhi"
+        - "Gurugram"
+        - "Gurgaon"
+        - "Noida"
+        - "Kolkata"
+        - "Ahmedabad"
+        - "Kochi"
+        - "Chandigarh"
+        - "Jaipur"
+        - "Indore"
+
+      # Location & Remote Filters
+      include_global_remote: true
+      global_remote_requires_india_eligibility: true
+      allow_india_hybrid: true
+      allow_india_onsite: true
+      min_relevance_score: 35.0  # Minimum technical relevance score (0-100)
+
+      # Experience & Seniority
+      # LinkedIn levels: 1=Internship, 2=Entry level, 3=Associate, 4=Mid-Senior level, 5=Director, 6=Executive
       experience_level:
-      - 2
-      - 3
+        - 2
+        - 3
+        - 4
+      min_experience: 1
+      max_experience: 8
+
     profile_data:
       full_name: "Full Name"
       email: "your_email@example.com"
       phone: "1234567890"
-      country_code: "Your Country (+1)"
-      years_experience: "3"
+      country_code: "India (+91)"
+      years_experience: "4"
+      years_python: "4"
+      years_ml: "3"
+      years_genai: "2"
       sponsorship_required: "No"
       authorized_to_work: "Yes"
       willing_to_relocate: "Yes"
-      current_salary: "80000"
-      expected_salary: "120000"
+      current_salary: "1500000"
+      expected_salary: "2500000"
       notice_period: "30 days"
       portfolio_url: "https://github.com/yourusername"
       linkedin_url: "https://linkedin.com/in/yourusername"
       learned_answers: {}
-    preferences:
-      max_applications_per_run: 50
-      cooldown_seconds: 5
-      dry_run: false
-    schedule:
-      enabled: false
-      cron: "0 9 * * 1-5"
-      timezone: "America/New_York"
-      profile_management:
-        max_session_age_days: 25
-        backup_profile: false
-        health_check: true
 
-# GLOBAL PROXY CONFIGURATION
-# This will be used by any candidate that doesn't define their own proxy pool
+    preferences:
+      max_applications_per_run: 30
+      cooldown_seconds: 5
+      dry_run: true  # Keep true for testing! Set to false when ready to submit live
+      blacklist: []
+      blacklist_titles:
+        - "Product Manager"
+        - "Program Manager"
+        - "Sales"
+        - "Marketing"
+        - "Recruiter"
+        - "Data Analyst"
+        - "Business Analyst"
+        - "QA Engineer"
+        - "Frontend Engineer"
+
+# GLOBAL PROXY CONFIGURATION (Optional - disabled by default)
 proxy:
   enabled: false
   provider: "brightdata"
   rotation:
-    strategy: "per_candidate" # options: per_session, per_candidate
+    strategy: "per_candidate"
   health_check:
     enabled: true
     url: "https://lumtest.com/myip.json"
     timeout: 10
-  pools:
-    - name: "brightdata_residential_us"
-      type: "residential"
-      host: "brd.superproxy.io"
-      port: 22225
-      username: "brd-customer-ID-zone-ZONE"
-      password: "PASSWORD"
-      country: "US"
-      enabled: true
+  pools: []

@@ -149,9 +149,10 @@ def migrate():
         
         # Step 5: Create submission_events table if it doesn't exist
         print("  5. Creating submission_events table...")
+        con.execute("CREATE SEQUENCE IF NOT EXISTS submission_event_seq")
         con.execute("""
             CREATE TABLE IF NOT EXISTS submission_events (
-                event_id INTEGER PRIMARY KEY,
+                event_id INTEGER PRIMARY KEY DEFAULT nextval('submission_event_seq'),
                 job_id VARCHAR,
                 event_type VARCHAR,
                 event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
