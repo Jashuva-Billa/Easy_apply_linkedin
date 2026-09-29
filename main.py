@@ -1,3 +1,4 @@
+import sys
 import yaml
 import logging
 import time
@@ -258,6 +259,12 @@ if __name__ == '__main__':
     # Register summary on exit
     atexit.register(metrics.print_summary)
 
+    # Verify profile metadata before launching browser
+    if selected_candidate:
+        expected_email = selected_candidate.get('credentials', {}).get('email')
+        if expected_email and profile_path:
+            verify_profile_metadata(profile_path, expected_email)
+
     # Initialize Core Components
     browser = Browser(
         profile_path=profile_path if profile_path else None,
@@ -266,24 +273,20 @@ if __name__ == '__main__':
     )
     page = browser.get_page()
     
-    # Click center of screen after browser opens (dismiss popups/activate page)
-    logger.info("Waiting 4 seconds before clicking center screen...", step="init")
-    time.sleep(4)
-    viewport_size = page.viewport_size
-    center_x = viewport_size['width'] // 2
-    center_y = viewport_size['height'] // 2
-    page.mouse.click(center_x, center_y)
-    logger.info(f"Clicked center of screen at ({center_x}, {center_y})", step="init")
-    
-    # Login
+    # Login and verify authenticated session
     session = Session(page)
-    session.login(username, password)
-    
-    # Verify profile metadata if using candidate profile
-    if selected_candidate:
-        expected_email = selected_candidate.get('credentials', {}).get('email')
-        if expected_email and profile_path:
-            verify_profile_metadata(profile_path, expected_email)
+    is_authenticated = session.login(username, password)
+
+    if not is_authenticated:
+        logger.error("[LOGIN] FAILED", step="login", event="failure")
+        logger.error("[LOGIN] Authentication could not be verified", step="login", event="failure")
+        logger.error("[JOBS] Job search will NOT start", step="job_search", event="cancelled")
+        browser.close()
+        sys.exit(1)
+
+    logger.info("[JOBS] Navigating to LinkedIn Jobs", step="job_search", event="navigation")
+    logger.info("[JOBS] Starting job search", step="job_search", event="start")
+    logger.info("JOB SEARCH START", step="job_search", event="start")
 
     # Application & Search Components
     workflow = Workflow(

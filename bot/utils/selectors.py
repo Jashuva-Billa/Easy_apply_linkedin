@@ -79,6 +79,26 @@ LOCATORS = {
     "easy_apply_button": {
         "primary": "#jobs-apply-button-id, button#jobs-apply-button-id, button.jobs-apply-button",
         "fallback": "button.jobs-apply-button, button[aria-label*='LinkedIn Apply to'], button[aria-label*='Apply to'], button[aria-label*='Easy Apply'], button[aria-label*='Continue applying']"
+    },
+    
+    "login_email": {
+        "primary": "input[type='email']:visible, input[autocomplete='username']:visible",
+        "fallback": "#username:visible, input[name='session_key']:visible"
+    },
+    
+    "login_password": {
+        "primary": "input[type='password']:visible, input[autocomplete='current-password']:visible",
+        "fallback": "#password:visible, input[name='session_password']:visible"
+    },
+    
+    "login_submit": {
+        "primary": "button:has-text('Sign in'):not(:has-text('Microsoft')):not(:has-text('Apple')):not(:has-text('Google')):visible",
+        "fallback": "button[type='submit']:visible, button[aria-label='Sign in']:visible, //button[normalize-space()='Sign in']"
+    },
+    
+    "authenticated_nav": {
+        "primary": "nav.global-nav, #global-nav, .global-nav__me, img.global-nav__me-photo, button[aria-label*='me' i], a.global-nav__primary-link[href*='/feed']",
+        "fallback": ".search-global-typeahead__input, .feed-identity-module, a[href*='/jobs']"
     }
 }
 

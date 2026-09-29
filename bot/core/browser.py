@@ -20,7 +20,11 @@ class Browser:
         self.browser = None
         self.context = None
         self.page = None
-        self.use_persistent = profile_path and os.path.isdir(profile_path)
+        if profile_path:
+            os.makedirs(profile_path, exist_ok=True)
+            self.use_persistent = True
+        else:
+            self.use_persistent = False
         self._setup_browser()
 
     def _get_screen_resolution(self):
